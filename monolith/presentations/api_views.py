@@ -5,6 +5,7 @@ from events.models import Conference
 from common.json import ModelEncoder
 from django.views.decorators.http import require_http_methods
 import json
+import pika
 
 
 class PresentationListEncoder(ModelEncoder):
@@ -30,6 +31,9 @@ class PresentationDetailEncoder(ModelEncoder):
     encoders = {
         "conference": ConferenceListEncoder(),
     }
+
+    def get_extra_data(self, o):
+        return {"status": o.status.name}
 
 
 @require_http_methods(["GET", "POST"])
@@ -106,8 +110,57 @@ def api_show_presentation(request, pk):
         }
     }
     """
-    # if request.method == "GET":
+    if request.method == "GET":
+        presentation = Presentation.objects.get(id=pk)
+        return JsonResponse(
+            presentation,
+            encoder=PresentationDetailEncoder,
+            safe=False,
+        )
+    elif request.method == "DELETE":
+        count, _ = Presentation.objects.get(id=pk)
+        return JsonResponse({"deleted": count > 0})
+    else:  # "PUT" update
+        content = json.loads(request.body)
+        try:
+            # # Get the Conference object and put it in the content dict
+            if "conference" in content:
+                conference = Conference.objects.get(id=content["conference"])
+                content["conference"] = conference
+        except Conference.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid conference"},
+                status=400,
+            )
+        Presentation.objects.filter(id=pk).update(**content)
+        presentation = Presentation.objects.get(id=pk)
+        return JsonResponse(
+            presentation, encoder=PresentationDetailEncoder, safe=False
+        )
+
+
+@require_http_methods(["PUT"])
+def api_approve_presentation(request, pk):
+    print("approval function running")
     presentation = Presentation.objects.get(id=pk)
+    presentation.approve()
+
+    approve_msg = {
+        "presenter_name": presentation.presenter_name,
+        "presenter_email": presentation.presenter_email,
+        "title": presentation.title,
+    }
+
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue="presentation_approvals")
+    channel.basic_publish(
+        exchange="",
+        routing_key="presentation_approvals",
+        body=json.dumps(approve_msg),
+    )
+    connection.close()
     return JsonResponse(
         presentation,
         encoder=PresentationDetailEncoder,
@@ -115,24 +168,29 @@ def api_show_presentation(request, pk):
     )
 
 
-#    # elif request.method == "DELETE":
-#         count, _ = Presentation.objects.get(id=pk)
-#         return JsonResponse({"deleted": count > 0})
-#     else:  # "PUT" update
-#         content = json.loads(request.body)
-#         print("content", content)
-#         try:
-#             print("tryblock")
-#             # # Get the Conference object and put it in the content dict
-#             presentation = Presentation.objects.get(id=pk)
-#             # presentation = conference.presentations
-#             # print("test", conference)
-#             return JsonResponse(
-#                 presentation, encoder=PresentationDetailEncoder, safe=False
-#             )
-#             # content["conference"] = conference
-#         except Conference.DoesNotExist:
-#             return JsonResponse(
-#                 {"message": "Invalid conference id"},
-#                 status=400,
-#             )
+@require_http_methods(["PUT"])
+def api_reject_presentation(request, pk):
+    presentation = Presentation.objects.get(id=pk)
+    presentation.reject()
+
+    reject_msg = {
+        "presenter_name": presentation.presenter_name,
+        "presenter_email": presentation.presenter_email,
+        "title": presentation.title,
+    }
+
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue="presentation_rejections")
+    channel.basic_publish(
+        exchange="",
+        routing_key="presentation_rejections",
+        body=json.dumps(reject_msg),
+    )
+    connection.close()
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )

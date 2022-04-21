@@ -92,18 +92,31 @@ def api_show_attendee(request, pk):
         }
     }
     """
-    # if request.method == "GET":
-    attendee = Attendee.objects.get(id=pk)
-    return JsonResponse(
-        attendee,
-        encoder=AttendeeDetailEncoder,
-        safe=False,
-    )
-    # elif request.method == "DELETE":
-    #   count, _ = Attendee.objects.filter(id=pk).delete()
-    #  return JsonResponse({"deleted": count > 0})
-    # else:
-    #     content = json.loads(request.body)
-    #     try:
-    #         if "conference" in content:
-    #             conference = Conference.objects.get(conference_id = id)
+    if request.method == "GET":
+        attendee = Attendee.objects.get(id=pk)
+        return JsonResponse(
+            attendee,
+            encoder=AttendeeDetailEncoder,
+            safe=False,
+        )
+    elif request.method == "DELETE":
+        count, _ = Attendee.objects.filter(id=pk).delete()
+        return JsonResponse({"deleted": count > 0})
+    else:  # PUT (to update info)
+        content = json.loads(request.body)
+        try:
+            if "conference" in content:
+                conference = ConferenceVO.objects.get(
+                    conference=content["conference"]
+                )
+                content["conference"] = conference
+        except ConferenceVO.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid Conference"},
+                status=400,
+            )
+        Attendee.objects.filter(id=pk).update(**content)
+        attendee = Attendee.objects.get(id=pk)
+        return JsonResponse(
+            attendee, encoder=AttendeeDetailEncoder, safe=False
+        )

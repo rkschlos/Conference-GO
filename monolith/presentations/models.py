@@ -49,12 +49,12 @@ class Presentation(models.Model):
     )
 
     def approve(self):
-        status = Status.object.get(name="APPROVED")
+        status = Status.objects.get(name="APPROVED")
         self.status = status
         self.save()
 
     def reject(self):
-        status = Status.object.get(name="REJECTED")
+        status = Status.objects.get(name="REJECTED")
         self.status = status
         self.save()
 
