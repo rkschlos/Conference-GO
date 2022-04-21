@@ -1,0 +1,15 @@
+FROM python:3
+
+#We set an environment variable so that Python prints things immediately 
+ENV PYTHONUNBUFFERED 1
+
+#We set the working directory to /app
+WORKDIR /app
+
+#We copy over the requirements.txt so that we can install from it
+COPY requirements.txt requirements.txt
+
+#We install the dependencies using pip
+RUN pip install -r requirements.txt
+
+CMD python attendees/account_info_consumer.py
