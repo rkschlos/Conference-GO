@@ -23,8 +23,8 @@ class AttendeeDetailEncoder(ModelEncoder):
     }
 
     def get_extra_data(self, o):
-        accounts = AccountVO.objects.all()
-        if o.email not in accounts:
+        account_overlap = AccountVO.objects.filter(email=o.email)
+        if len(account_overlap) == 0:
             return {"has_account": False}
         else:
             return {"has_account": True}

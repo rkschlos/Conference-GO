@@ -16,6 +16,7 @@ django.setup()
 
 from attendees.models import AccountVO
 
+
 # Declare a function to update the AccountVO object (ch, method, properties, body)
 def update_AccountVO_object(ch, method, properties, body):
     print("  Received %r" % body)
@@ -55,12 +56,14 @@ while True:
 
         #           create the pika connection parameters
         parameters = pika.ConnectionParameters(host="rabbitmq")
+        print("setting up pubsub")
 
         #           create a blocking connection with the parameters
         connection = pika.BlockingConnection(parameters)
 
         #           open a channel
         channel = connection.channel()
+        print("connected to channel")
 
         #           declare a fanout exchange named "account_info"
         channel.exchange_declare(
@@ -84,6 +87,8 @@ while True:
             on_message_callback=update_AccountVO_object,
             auto_ack=True,
         )
+
+        print("setup consumer")
         #           tell the channel to start consuming
         channel.start_consuming()
 
