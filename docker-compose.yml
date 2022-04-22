@@ -22,8 +22,8 @@ services:
     build:
       context: ./attendees_microservice
       dockerfile: ./Dockerfile.account_info.dev
-      volumes:
-        - ./attendees_microservice:/app
+    volumes:
+      - ./attendees_microservice:/app
   presentation_workflow:
     build:
       context: ./presentation_workflow
